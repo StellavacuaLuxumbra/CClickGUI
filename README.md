@@ -99,14 +99,3 @@ src/Config.cpp        配置保存 / 加载 / 自动保存
 src/Toasts.cpp        Toast 通知
 examples/Demo.cpp     演示程序
 ```
-
-## 与原版（LuxumbraCilent）的差异
-
-提取 ClickGUI 核心时的现代化调整：
-
-- 数值设置从「左右键步进」升级为**可拖拽滑条**（右键步进、双击精确输入保留）。
-- 搜索从弹出 Win32 对话框升级为**原地键入**（借取 / 归还键盘焦点，支持 IME 中文）。
-- 移除客户端耦合：DLL 插件系统、raylib 后端、灵动岛、状态通知管理、样式编辑器 Feature（改为直接 `ApplyStyle` / `GetStyle` API）、自动保存由「配置管理」Feature 控制改为 `EnableAutoSave()`。
-- 字体真正使用 `UIStyle.guiFontName`（原版硬编码），面板标题可用 `UIStyle.title` 配置。
-- 点击提示音（`Beep`）、Feature 开关时的状态通知联动等客户端行为移除。
-- 通用防御性修正：`std::stoi/std::stof` 越界异常捕获、退出搜索模式时的焦点归还（`AttachThreadInput`）、GUI 关闭时自动退出搜索模式。
