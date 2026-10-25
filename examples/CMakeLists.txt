@@ -1,0 +1,5 @@
+add_executable(cgu_demo Demo.cpp)
+target_link_libraries(cgu_demo PRIVATE clickgui)
+if(MSVC)
+    target_compile_options(cgu_demo PRIVATE /utf-8)
+endif()
