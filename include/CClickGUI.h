@@ -2,6 +2,14 @@
 #define CCLICKGUI_H
 
 // ============================================================================
+//  版本
+// ============================================================================
+#define CGUI_VERSION_MAJOR 1
+#define CGUI_VERSION_MINOR 1
+#define CGUI_VERSION_PATCH 0
+#define CGUI_VERSION_STRING "1.1.0"
+
+// ============================================================================
 //  CClickGUI — 现代化 C++17 ClickGUI 框架（Win32）
 //  提取自 LuxumbraCilent 3.0 的 ClickGUI 子系统并重构为独立框架。
 //

@@ -1,5 +1,7 @@
 # CClickGUI
 
+> 当前版本：**1.1.0** · [更新日志](CHANGELOG.md)
+
 C++ 开发的 Windows ClickGUI 框架（Win32，无第三方依赖）。
 
 现代化 C++ ClickGUI 框架（Win32，无第三方依赖），提取自 **LuxumbraCilent 3.0** 的 ClickGUI 子系统并重构为独立框架。
@@ -8,7 +10,7 @@ C++ 开发的 Windows ClickGUI 框架（Win32，无第三方依赖）。
 
 - **零依赖**：纯 Win32 —— 分层窗口（`WS_EX_LAYERED`，逐像素 Alpha、透明区域自动点击穿透）+ 软件光栅化渲染（CPU 帧缓冲 + GDI 文字），不需要任何图形库。
 - **完整控件集**：功能开关（动画滑块）、可拖拽数值滑条（Int/Float，按 step 量化）、下拉选择框（浮层 + 悬停高亮）、颜色选择（设置名含 `色` / `RGB` 即识别，弹出系统取色器）、文本编辑（双击弹框）、分页设置、子功能嵌套、每功能独立快捷键（左键绑定 / 右键清除）。
-- **现代交互**：面板标题栏拖拽移动、滚轮 + 可拖拽滚动条、原地键入搜索框（支持中文输入法，实时过滤，ESC 清空 / Enter 确认）、悬停描述提示。
+- **现代交互**：面板标题栏拖拽移动、分类栏 / 功能列表滚轮 + 可拖拽滚动条、原地键入搜索框（支持中文输入法，实时过滤，ESC 清空 / Enter 确认）、悬停描述提示。
 - **全套动画**：面板开合缩放、分类切换滑动指示条、行展开裁剪动画、开关滑块、Toast 进出场 / 内容交叉淡入 / 槽位平滑下移。
 - **数据模型**：`Feature`（功能）+ `Setting`（Bool/Int/Float/String/Select）+ `Registry`（分类自动聚合），`onEnable` / `onDisable` / `onTick` 回调，可选独立 worker 线程或 UI 线程驱动。
 - **全局热键**：message-only 窗口 + `RegisterHotKey`（须带修饰键），默认 `Alt+C` 呼出面板。
@@ -66,6 +68,24 @@ g++ -std=c++17 -O2 -Iinclude src/*.cpp examples/Demo.cpp -o demo.exe -lgdi32 -lu
 > 此情况请用 `build.bat` 或 Ninja / MSVC 生成器。
 
 MSVC 下框架以 `/utf-8` 编译（源码含中文界面字符串）。
+
+## 打包发布
+
+准备好 MinGW-w64 g++ 与 CMake / Ninja 后执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File release.ps1
+```
+
+脚本会以 Release 配置构建静态库 `libclickgui.a` 和演示程序 `cgu_demo.exe`，
+并按当前头文件版本号生成发布包：
+
+```
+dist/CClickGUI-1.1.0-win64-mingw.zip
+dist/SHA256SUMS.txt
+```
+
+可通过 `-Compiler` 指定 g++ 路径，`-SkipBuild` 复用已有构建产物。
 
 ## 操作方式
 
