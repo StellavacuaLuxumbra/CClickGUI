@@ -24,6 +24,29 @@ void changeSetting(Setting* s, int dir) {
 }
 
 // ----------------------------------------------------------------------------
+// 让指定分类在左侧分类栏中可见（仅在选中项变化时调用，滚轮滚动位置不会被抢回）
+// ----------------------------------------------------------------------------
+static void ensureCategoryVisible(int catIndex) {
+	GuiContext& c = ctx();
+	auto cats = Registry::instance().categories();
+	if (catIndex < 0 || catIndex >= (int)cats.size()) return;
+	float scale = c.style.guiScale * c.systemScale;
+	int gh = (int)(std::min(600, std::max(360, c.h - 120)) * scale);
+	int catTop = (int)(74 * scale);
+	int viewBottom = gh - (int)(10 * scale);
+	int clipH = viewBottom - catTop;
+	int rowH = (int)(38 * scale);
+	int tabH = (int)(32 * scale);
+	int totalH = (int)cats.size() * rowH;
+	if (totalH <= clipH) { c.catScrollY = 0; return; }
+	int top = catIndex * rowH;
+	int bottom = top + tabH;
+	if (top < c.catScrollY) c.catScrollY = top;
+	if (bottom > c.catScrollY + clipH) c.catScrollY = bottom - clipH;
+	c.catScrollY = std::clamp(c.catScrollY, 0, totalH - clipH);
+}
+
+// ----------------------------------------------------------------------------
 // 滑条取值：x 坐标 → 区间值（按 step 量化）
 // ----------------------------------------------------------------------------
 static void setSliderValueFromX(Setting* s, int x, const c_rect& track) {
@@ -143,7 +166,7 @@ bool handleClick(int x, int y, int dir) {
 						// 搜索模式下点击功能 → 跳转到其所在分类
 						auto cats = Registry::instance().categories();
 						for (size_t i = 0; i < cats.size(); ++i) {
-							if (cats[i] == it->feat->category) { c.selCat = (int)i; break; }
+							if (cats[i] == it->feat->category) { c.selCat = (int)i; ensureCategoryVisible(c.selCat); break; }
 						}
 						exitSearchMode();
 						searchText.clear();
@@ -189,6 +212,7 @@ bool handleClick(int x, int y, int dir) {
 			exitSearchMode();
 			searchText.clear();
 			c.selCat = it->dir; c.scrollY = 0;
+			ensureCategoryVisible(c.selCat);
 			return true;
 		case GuiContext::Hit::CloseGui:
 			exitSearchMode();
@@ -239,11 +263,34 @@ bool handleClick(int x, int y, int dir) {
 			int viewBottom = gyy + gh - (int)(10 * scale);
 			int listW = gw - (int)(214 * scale);
 			int clipH = viewBottom - viewTop;
+			auto cats = Registry::instance().categories();
+
+			// dir == 1：分类栏滚动条
+			if (it->dir == 1) {
+				int tabX = gxx + (int)(18 * scale), tabW = (int)(150 * scale);
+				int totalH = (int)cats.size() * (int)(38 * scale);
+				if (totalH > clipH) {
+					int barW = std::max(4, (int)(8 * scale));
+					int barH = std::max(30, clipH * clipH / totalH);
+					int barPos = (clipH - barH) * c.catScrollY / (totalH - clipH);
+					c_rect bar(tabX + tabW + (int)(6 * scale), catTop + barPos, barW, barH);
+					if (bar.contains(x, y)) {
+						c.draggingCatScrollBar = true;
+						c.catScrollDragStartY = y;
+						c.catScrollDragStartScroll = c.catScrollY;
+						c.catScrollBarInfo = { catTop, clipH, totalH, barH };
+						SetCapture(c.hwnd);
+					} else {
+						int newScroll = (totalH - clipH) * (y - catTop - barH / 2) / (clipH - barH);
+						c.catScrollY = std::max(0, std::min(totalH - clipH, newScroll));
+					}
+				}
+				return true;
+			}
 
 			// 测量当前列表总高度（渲染一遍取行高，帧缓冲随后会被重绘覆盖）
 			int totalH = 0;
 			std::string currentSearch = searchText;
-			auto cats = Registry::instance().categories();
 			if (c.selCat >= 0 && c.selCat < (int)cats.size()) {
 				c_rect savedClip = c.clipRect;
 				c.clipRect.set(0, 0, 0, 0);
@@ -268,6 +315,7 @@ bool handleClick(int x, int y, int dir) {
 					c.scrollDragStartY = y;
 					c.scrollDragStartScroll = c.scrollY;
 					c.scrollBarInfo = { viewTop, clipH, totalH, barH };
+					SetCapture(c.hwnd);
 				} else {
 					int newScroll = (totalH - clipH) * (y - viewTop - barH / 2) / (clipH - barH);
 					newScroll = std::max(0, std::min(totalH - clipH, newScroll));
@@ -341,6 +389,14 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 				newScroll = std::max(0, std::min(c.scrollBarInfo.totalH - c.scrollBarInfo.clipH, newScroll));
 				c.scrollY = newScroll;
 				updateLayered();
+			} else if (c.draggingCatScrollBar) {
+				int deltaY = y - c.catScrollDragStartY;
+				int denom = c.catScrollBarInfo.clipH - c.catScrollBarInfo.barH;
+				int newScroll = c.catScrollDragStartScroll;
+				if (denom > 0) newScroll = c.catScrollDragStartScroll + (c.catScrollBarInfo.totalH - c.catScrollBarInfo.clipH) * deltaY / denom;
+				newScroll = std::max(0, std::min(c.catScrollBarInfo.totalH - c.catScrollBarInfo.clipH, newScroll));
+				c.catScrollY = newScroll;
+				updateLayered();
 			} else if (c.sliderDrag.active && c.sliderDrag.set) {
 				setSliderValueFromX(c.sliderDrag.set, x, c.sliderDrag.track);
 				updateLayered();
@@ -350,6 +406,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 		case WM_LBUTTONUP:
 		case WM_RBUTTONUP:
 			if (c.draggingScrollBar) c.draggingScrollBar = false;
+			if (c.draggingCatScrollBar) c.draggingCatScrollBar = false;
 			if (c.sliderDrag.active) c.sliderDrag.active = false;
 			c.draggingPanel = false;
 			ReleaseCapture();
@@ -358,6 +415,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 			if (lp != (LPARAM)hwnd) {
 				c.draggingPanel = false;
 				c.draggingScrollBar = false;
+				c.draggingCatScrollBar = false;
 				c.sliderDrag.active = false;
 			}
 			return 0;
@@ -375,10 +433,25 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 			int viewBottom = gyy + gh - (int)(10 * scale);
 			int listW = gw - (int)(214 * scale);
 			int clipH = viewBottom - catTop;
+			auto cats = Registry::instance().categories();
+
+			// 滚轮位于左侧分类栏时优先滚动分类列表
+			POINT pt = { GET_X_LPARAM(lp), GET_Y_LPARAM(lp) };
+			ScreenToClient(hwnd, &pt);
+			if (pt.x >= gxx && pt.x < listX && pt.y >= catTop && pt.y <= viewBottom) {
+				int catsTotalH = (int)cats.size() * (int)(38 * scale);
+				if (catsTotalH > clipH) {
+					int scrollStep = std::max(20, clipH / 5);
+					if (delta > 0) c.catScrollY -= scrollStep;
+					else c.catScrollY += scrollStep;
+					c.catScrollY = std::max(0, std::min(catsTotalH - clipH, c.catScrollY));
+					updateLayered();
+					return 0;
+				}
+			}
 
 			int totalH = 0;
 			std::string currentSearch = searchText;
-			auto cats = Registry::instance().categories();
 			if (c.selCat >= 0 && c.selCat < (int)cats.size()) {
 				c_rect savedClip = c.clipRect;
 				c.clipRect.set(0, 0, 0, 0);

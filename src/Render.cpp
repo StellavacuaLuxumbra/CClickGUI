@@ -353,33 +353,59 @@ void renderClickGui() {
 		if (c.selCat >= (int)cats.size()) c.selCat = 0;
 		int tabX = gx + (int)(18 * scale * popScale), tabW = (int)(150 * scale * popScale);
 		int catTop = gy + (int)(74 * scale * popScale);
-		int selY = catTop + c.selCat * (int)(38 * scale * popScale);
+		int viewBottom = gy + gh - (int)(10 * scale * popScale);
+		int catRowH = (int)(38 * scale * popScale);
 		int tabH = (int)(32 * scale * popScale);
+		int catClipH = viewBottom - catTop;
+
+		// 分类栏滚动范围与竖向裁剪（项数过多时可滚动）
+		int catsTotalH = (int)cats.size() * catRowH;
+		int catMaxScroll = std::max(0, catsTotalH - catClipH);
+		c.catScrollY = std::clamp(c.catScrollY, 0, catMaxScroll);
+		int catBarW = std::max(4, (int)(8 * scale * popScale));
+		int catBarGap = (int)(6 * scale * popScale);
+		c_rect catSavedClip = c.clipRect;
+		c_rect catClip(tabX - 4, catTop, tabW + 4 + catBarGap + catBarW, catClipH);
+		c.clipRect = catClip;
+
+		int selY = catTop - c.catScrollY + c.selCat * catRowH;
 		for (size_t i = 0; i < cats.size(); ++i) {
-			c_rect tab(tabX, catTop + (int)i * (int)(38 * scale * popScale), tabW, tabH);
-			bool hover = tab.contains(c.mouseX, c.mouseY);
+			c_rect tab(tabX, catTop - c.catScrollY + (int)i * catRowH, tabW, tabH);
+			bool hover = catClip.contains(c.mouseX, c.mouseY) && tab.contains(c.mouseX, c.mouseY);
 			bool isSel = (i == (size_t)c.selCat);
 			unsigned int baseCol = isSel ? tc.accent : tc.panel;
 			if (hover && !isSel) baseCol = rgbaLerp(tc.panel, tc.accent, 0.32f);
 			drawRoundRect(tab, (int)(8 * scale * popScale), baseCol);
 			drawText(c_rect(tab.l + (int)(10 * scale * popScale), tab.t, tab.width() - (int)(20 * scale * popScale), tab.height()), cats[i], tc.text, ALIGN_LEFT | ALIGN_VCENTER, (int)(14 * scale * popScale));
-			addHit(GuiContext::Hit::SelectCat, tab, nullptr, nullptr, (int)i, 0, "");
+			c_rect tabHit = tab;
+			tabHit.l = std::max(tabHit.l, catClip.l); tabHit.t = std::max(tabHit.t, catClip.t);
+			tabHit.r = std::min(tabHit.r, catClip.r); tabHit.b = std::min(tabHit.b, catClip.b);
+			if (tabHit.width() > 0 && tabHit.height() > 0)
+				addHit(GuiContext::Hit::SelectCat, tabHit, nullptr, nullptr, (int)i, 0, "");
 		}
 		{
 			// 选中分类指示条（滑动动画）
 			float catEase = easeInOutCubic(c.catSwitchT);
-			int srcY = (c.prevSelCat >= 0 && c.prevSelCat < (int)cats.size()) ? (catTop + c.prevSelCat * (int)(38 * scale * popScale)) : selY;
+			int srcY = (c.prevSelCat >= 0 && c.prevSelCat < (int)cats.size()) ? (catTop - c.catScrollY + c.prevSelCat * catRowH) : selY;
 			int indY = srcY + (int)((float)(selY - srcY) * catEase);
 			c_rect indRect(tabX - 2, indY, 4, tabH);
 			unsigned int indCol = tc.accent;
 			indCol = rgbaScaleAlpha(indCol, 0.95f);
 			drawRoundRect(indRect, 2, indCol);
 		}
+		// 分类栏滚动条
+		if (catsTotalH > catClipH) {
+			int catBarH = std::max(30, catClipH * catClipH / catsTotalH);
+			int catBarPos = (catClipH - catBarH) * c.catScrollY / (catsTotalH - catClipH);
+			c_rect catBar(tabX + tabW + catBarGap, catTop + catBarPos, catBarW, catBarH);
+			drawRoundRect(catBar, catBarW / 2, rgbaScaleAlpha(tc.accent, 0.75f));
+			addHit(GuiContext::Hit::ScrollBar, catBar, nullptr, nullptr, 1);
+		}
+		c.clipRect = catSavedClip;
 
 		// 功能列表 + 裁剪滚动
 		int listX = gx + (int)(186 * scale * popScale);
 		int viewTop = catTop;
-		int viewBottom = gy + gh - (int)(10 * scale * popScale);
 		int listW = gw - (int)(214 * scale * popScale);
 		int clipH = viewBottom - viewTop;
 

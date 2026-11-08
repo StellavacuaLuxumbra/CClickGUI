@@ -31,7 +31,7 @@ namespace detail {
 struct GuiContext {
 	int w, h;
 	bool init, guiVisible;
-	int selCat, scrollY;                 // 当前分类索引 / 列表滚动偏移
+	int selCat, scrollY, catScrollY;     // 当前分类索引 / 列表滚动偏移 / 分类栏滚动偏移
 	HWND hwnd;
 
 	std::vector<unsigned int> fb, preFb; // ARGB 帧缓冲 / 预乘 Alpha 帧缓冲
@@ -83,6 +83,11 @@ struct GuiContext {
 	int scrollDragStartY, scrollDragStartScroll;
 	struct ScrollBarInfo { int viewTop, clipH, totalH, barH; } scrollBarInfo;
 
+	// ---- 分类栏滚动条拖拽 ----
+	bool draggingCatScrollBar;
+	int catScrollDragStartY, catScrollDragStartScroll;
+	ScrollBarInfo catScrollBarInfo;
+
 	// ---- 滑条拖拽（Int/Float 设置）----
 	struct SliderDrag { bool active; Feature* feat; Setting* set; c_rect track; } sliderDrag;
 
@@ -117,9 +122,10 @@ struct GuiContext {
 		SelectDropdownState() : active(false), feat(nullptr), set(nullptr), hoveredOption(-1) {}
 	} selectDropdown;
 
-	GuiContext() : w(0), h(0), init(false), guiVisible(false), selCat(0), scrollY(0), hwnd(nullptr),
+	GuiContext() : w(0), h(0), init(false), guiVisible(false), selCat(0), scrollY(0), catScrollY(0), hwnd(nullptr),
 		nextId(1), draggingPanel(false), dragStartX(0), dragStartY(0), panelOffsetX(0), panelOffsetY(0),
 		draggingScrollBar(false), scrollDragStartY(0), scrollDragStartScroll(0), scrollBarInfo{ 0,0,0,0 },
+		draggingCatScrollBar(false), catScrollDragStartY(0), catScrollDragStartScroll(0), catScrollBarInfo{ 0,0,0,0 },
 		mouseX(-1), mouseY(-1), lastFrameTime(0), lastTickTime(0), clipRect(0, 0, 0, 0), systemScale(1.0f),
 		searchActive(false), lastCursorBlink(0), cursorVisible(true),
 		guiAnimTarget(false), guiAnim(0.0f), catSwitchT(1.0f), prevSelCat(0), animDt(16.6f) {
